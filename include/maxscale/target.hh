@@ -200,6 +200,12 @@ public:
 
     virtual ~Target() = default;
 
+    enum class Type
+    {
+        SERVICE,
+        SERVER,
+    };
+
     /**
      * Get the target name
      *
@@ -208,6 +214,13 @@ public:
      * @return Target name
      */
     virtual const char* name() const = 0;
+
+    /**
+     * Get the type of the target
+     *
+     * @return The type of the target, either a service or a server.
+     */
+    virtual Type type() const = 0;
 
     /**
      * Get target status

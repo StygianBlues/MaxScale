@@ -134,6 +134,21 @@ public:
         return m_data->targets;
     }
 
+    std::vector<Service*> get_child_services() const
+    {
+        std::vector<Service*> rval;
+
+        for (const auto& a : m_data->targets)
+        {
+            if (a->type() == mxs::Target::Type::SERVICE)
+            {
+                rval.push_back(static_cast<Service*>(a));
+            }
+        }
+
+        return rval;
+    }
+
     uint64_t status() const override;
 
     /**
@@ -260,6 +275,22 @@ public:
     void mark_for_wakeup(mxs::ClientConnection* session) override;
     void unmark_for_wakeup(mxs::ClientConnection* session) override;
 
+    /**
+     * @brief Add server to all services associated with a monitor
+     *
+     * @param monitor  A monitor.
+     * @param server   A server.
+     */
+    static void add_server(mxs::Monitor* pMonitor, SERVER* pServer);
+
+    /**
+     * @brief Remove server from all services associated with a monitor
+     *
+     * @param monitor  A monitor.
+     * @param server   A server.
+     */
+    static void remove_server(mxs::Monitor* pMonitor, SERVER* pServer);
+
 private:
 
     struct Data
@@ -298,6 +329,18 @@ private:
     void targets_updated();
     void wakeup_sessions_waiting_userdata();
     void set_start_user_account_manager(SAccountManager user_manager);
+
+    /**
+     * Propagates target updates upwards to parent services
+     *
+     * Should be called whenever a service's targets are modified to propagate it to other services
+     * that use it.
+     *
+     * Note: This function acquires the global service lock (this_unit.lock).
+     *
+     * @param targets The set of services whose targets were updated
+     */
+    static void propagate_target_update(const std::unordered_set<Service*>& services);
 
     // Helper for calculating version values
     std::pair<uint64_t, uint64_t> get_versions(const std::vector<SERVER*>& servers) const;
@@ -578,21 +621,5 @@ json_t* service_relations_to_filter(const SFilterDef& filter, const std::string&
  */
 json_t* service_relations_to_monitor(const mxs::Monitor* monitor, const std::string& host,
                                      const std::string& self);
-
-/**
- * @brief Add server to all services associated with a monitor
- *
- * @param monitor  A monitor.
- * @param server   A server.
- */
-void service_add_server(mxs::Monitor* pMonitor, SERVER* pServer);
-
-/**
- * @brief Remove server from all services associated with a monitor
- *
- * @param monitor  A monitor.
- * @param server   A server.
- */
-void service_remove_server(mxs::Monitor* pMonitor, SERVER* pServer);
 
 const MXS_MODULE_PARAM* common_service_params();

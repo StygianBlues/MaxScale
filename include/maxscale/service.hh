@@ -121,6 +121,11 @@ public:
         return m_name.c_str();
     }
 
+    mxs::Target::Type type() const override
+    {
+        return mxs::Target::Type::SERVICE;
+    }
+
     virtual const mxs::ConfigParameters& params() const = 0;
 
     const char* router_name() const

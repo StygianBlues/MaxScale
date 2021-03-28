@@ -638,12 +638,12 @@ bool Monitor::add_server(SERVER* server)
 
 void Monitor::server_added(SERVER* server)
 {
-    service_add_server(this, server);
+    Service::add_server(this, server);
 }
 
 void Monitor::server_removed(SERVER* server)
 {
-    service_remove_server(this, server);
+    Service::remove_server(this, server);
 }
 
 /**
@@ -1923,7 +1923,7 @@ void Monitor::populate_services()
 
     for (MonitorServer* pMs : m_servers)
     {
-        service_add_server(this, pMs->server);
+        Service::add_server(this, pMs->server);
     }
 }
 

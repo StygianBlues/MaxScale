@@ -92,6 +92,81 @@ const char CN_ROUTER_DIAGNOSTICS[] = "router_diagnostics";
 const char CN_ROUTER_OPTIONS[] = "router_options";
 const char CN_SESSION_TRACK_TRX_STATE[] = "session_track_trx_state";
 const char CN_STRIP_DB_ESC[] = "strip_db_esc";
+
+template<class T>
+class Graph
+{
+public:
+    Graph(size_t size = 0)
+    {
+        m_nodes.reserve(size);
+    }
+
+    void add_node(T node, std::vector<T> edges)
+    {
+        m_nodes[node].edges = edges;
+    }
+
+    std::vector<T> connecting_nodes(const std::unordered_set<T>& targets)
+    {
+        std::vector<T> result;
+
+        for (auto& kv : m_nodes)
+        {
+            probe_node(kv.second, targets);
+
+            if (kv.second.result == Result::YES)
+            {
+                result.push_back(kv.first);
+            }
+        }
+
+        return result;
+    }
+
+private:
+
+    enum class Result
+    {
+        YES,
+        NO,
+        UNKNOWN
+    };
+
+    struct Node
+    {
+        Result         result = Result::UNKNOWN;
+        std::vector<T> edges;
+    };
+
+    void probe_node(Node& node, const std::unordered_set<T>& targets)
+    {
+        if (node.result == Result::UNKNOWN)
+        {
+            node.result = Result::NO;
+
+            for (const auto& edge : node.edges)
+            {
+                if (targets.count(edge))
+                {
+                    node.result = Result::YES;
+                }
+                else
+                {
+                    Node& other = m_nodes[edge];
+                    probe_node(other, targets);
+
+                    if (other.result == Result::YES)
+                    {
+                        node.result = Result::YES;
+                    }
+                }
+            }
+        }
+    }
+
+    std::unordered_map<T, Node> m_nodes;
+};
 }
 
 Service* Service::create(const char* name, const char* router, mxs::ConfigParameters* params)
@@ -157,29 +232,54 @@ static std::string get_version_string(mxs::ConfigParameters* params)
     return version_string;
 }
 
-void service_add_server(Monitor* pMonitor, SERVER* pServer)
+// static
+void Service::add_server(Monitor* pMonitor, SERVER* pServer)
 {
+    std::unordered_set<Service*> to_update;
     LockGuard guard(this_unit.lock);
+    Graph<Service*> graph(this_unit.services.size());
 
     for (Service* pService : this_unit.services)
     {
+        graph.add_node(pService, pService->get_child_services());
+
         if (pService->cluster() == pMonitor)
         {
-            pService->add_target(pServer);
+            pService->m_data->targets.push_back(pServer);
+            pService->targets_updated();
+            to_update.insert(pService);
         }
+    }
+
+    for (Service* svc : graph.connecting_nodes(to_update))
+    {
+        svc->targets_updated();
     }
 }
 
-void service_remove_server(Monitor* pMonitor, SERVER* pServer)
+// static
+void Service::remove_server(Monitor* pMonitor, SERVER* pServer)
 {
+    std::unordered_set<Service*> to_update;
     LockGuard guard(this_unit.lock);
+    Graph<Service*> graph(this_unit.services.size());
 
     for (Service* pService : this_unit.services)
     {
+        graph.add_node(pService, pService->get_child_services());
+
         if (pService->cluster() == pMonitor)
         {
-            pService->remove_target(pServer);
+            auto& targets = pService->m_data->targets;
+            targets.erase(std::remove(targets.begin(), targets.end(), pServer), targets.end());
+            pService->targets_updated();
+            to_update.insert(pService);
         }
+    }
+
+    for (Service* svc : graph.connecting_nodes(to_update))
+    {
+        svc->targets_updated();
     }
 }
 
@@ -1538,17 +1638,36 @@ void Service::targets_updated()
     }
 }
 
+// static
+void Service::propagate_target_update(const std::unordered_set<Service*>& targets)
+{
+    LockGuard guard(this_unit.lock);
+    Graph<Service*> graph(this_unit.services.size());
+
+    for (Service* service : this_unit.services)
+    {
+        graph.add_node(service, service->get_child_services());
+    }
+
+    for (Service* svc : graph.connecting_nodes(targets))
+    {
+        svc->targets_updated();
+    }
+}
+
 void Service::remove_target(mxs::Target* target)
 {
     auto& targets = m_data->targets;
     targets.erase(std::remove(targets.begin(), targets.end(), target), targets.end());
     targets_updated();
+    propagate_target_update({this});
 }
 
 void Service::add_target(mxs::Target* target)
 {
     m_data->targets.push_back(target);
     targets_updated();
+    propagate_target_update({this});
 }
 
 int64_t Service::replication_lag() const

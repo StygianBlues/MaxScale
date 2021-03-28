@@ -689,7 +689,7 @@ bool XpandMonitor::refresh_nodes(MYSQL* pHub_con)
                                     // New server, so it needs to be added to all services that
                                     // use this monitor for defining its cluster of servers.
                                     run_in_mainworker([this, pServer]() {
-                                                          service_add_server(this, pServer);
+                                                          Service::add_server(this, pServer);
                                                       });
                                 }
                                 else
@@ -1016,7 +1016,7 @@ void XpandMonitor::populate_from_bootstrap_servers()
         // New server, so it needs to be added to all services that
         // use this monitor for defining its cluster of servers.
         run_in_mainworker([this, pServer]() {
-                              service_add_server(this, pServer);
+                              Service::add_server(this, pServer);
                           });
     }
 

@@ -116,6 +116,11 @@ public:
 
     virtual ~SERVER() = default;
 
+    mxs::Target::Type type() const override
+    {
+        return mxs::Target::Type::SERVER;
+    }
+
     /**
      * Get server address
      */
