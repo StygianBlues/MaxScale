@@ -79,6 +79,5 @@ public:
 private:
     bool check_master_node(mxt::MariaDB* conn);
     bool good_slave_thread_status(mxt::MariaDB* conn, int node);
-    bool wrong_replication_type(MYSQL* conn);
 };
 }

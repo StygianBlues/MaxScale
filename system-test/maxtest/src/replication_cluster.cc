@@ -349,34 +349,6 @@ bool ReplicationCluster::good_slave_thread_status(mxt::MariaDB* conn, int node)
     return rval;
 }
 
-bool ReplicationCluster::wrong_replication_type(MYSQL* conn)
-{
-    bool rval = true;
-
-    for (int i = 0; i < 2; i++)
-    {
-        char str[1024] = "";
-
-        if (find_field(conn, "SHOW SLAVE STATUS", "Gtid_IO_Pos", str) == 0)
-        {
-            bool require_gtid = m_shared.settings.req_mariadb_gtid;
-            // If the test requires GTID based replication, Gtid_IO_Pos must not be empty
-            if ((rval = (*str != '\0') != require_gtid))
-            {
-                printf("Wrong value for 'Gtid_IO_Pos' (%s), expected it to be %s.\n",
-                       str,
-                       require_gtid ? "not empty" : "empty");
-            }
-            else
-            {
-                break;
-            }
-        }
-        sleep(1);
-    }
-    return rval;
-}
-
 void ReplicationCluster::sync_slaves(int node)
 {
     if (this->nodes[node] == NULL)
