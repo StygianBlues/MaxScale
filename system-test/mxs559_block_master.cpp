@@ -87,11 +87,11 @@ int main(int argc, char* argv[])
 
     test.stop_timeout();
     test.tprintf("Make sure that replication works");
-    // TODO: Just a simple flush_hosts() may be sufficient.
-    test.repl->prepare_for_test();
-    if (!test.repl->fix_replication())
+    auto& mxs = test.maxscale();
+    mxs.check_servers_status(mxt::ServersInfo::default_repl_states());
+    if (!test.ok())
     {
-        test.tprintf("Replication is broken!");
+        return test.global_result;
     }
 
     // Try to connect over a period of 60 seconds. It is possible that
